@@ -8,39 +8,14 @@ from datetime import datetime, timedelta
 import config
 
 
-def set_logger(log_folder):
-    try:
-        logger = logging.getLogger()
-        logger.setLevel(logging.DEBUG)
-        formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
-
-        if log_folder: # Создание файла с логами только если указана папка
-            log_filename = datetime.now().strftime('%Y-%m-%d %H-%M-%S.log')
-            log_folder = os.path.join(log_folder, 'append_cinematograph_experience')
-            log_file_path = os.path.join(log_folder, log_filename)
-
-            os.makedirs(log_folder, exist_ok=True)
-
-            file_handler = logging.FileHandler(log_file_path, encoding='utf-8')
-            file_handler.setFormatter(formatter)
-            logger.addHandler(file_handler)
-
-        console_handler = logging.StreamHandler()
-        console_handler.setFormatter(formatter)
-        logger.addHandler(console_handler)
-
-        return logger
-    except Exception as e:
-        print(f"Ошибка при настройке логгера: {e}")
-
-
 def save_json(data, file_path):
     try:
         file_path = os.path.normpath(file_path)
+
         with open(file_path, 'w', encoding='utf-8') as file:
             json.dump(data, file, ensure_ascii=False, indent=4)
-    except Exception as e:
-        logger.error(f"Ошибка при сохранении JSON в файл {file_path}: {e}")
+    except Exception as err:
+        logger.error("Ошибка при сохранении JSON в файл %s: %s", file_path, err)
 
 
 def load_json(file_path, default_type):
@@ -50,8 +25,9 @@ def load_json(file_path, default_type):
             with open(file_path, 'r', encoding='utf-8') as file:
                 return json.load(file)
         return default_type
-    except Exception as e:
-        logger.error(f"Ошибка при загрузке JSON из файла {file_path}: {e}")
+    except Exception as err:
+        logger.error("Ошибка при загрузке JSON из файла %s: %s", file_path, err)
+
         return default_type
 
 
@@ -88,10 +64,10 @@ def entering_date():
                     continue
 
                 return datetime(year, month, day)
-            except ValueError as e:
-                print(f"Некорректный формат даты: {e}")
-    except Exception as e:
-        logger.error(f"Ошибка при вводе даты: {e}")
+            except ValueError as err:
+                print("Некорректный формат даты: %s", err)
+    except Exception as err:
+        logger.error("Ошибка при вводе даты: %s", err)
 
 
 def add_data_to_json(json_experience_path, json_current_path, cinematograph_type):
@@ -113,22 +89,22 @@ def add_data_to_json(json_experience_path, json_current_path, cinematograph_type
                 if key in json_experience[cinematograph_type]:
                     if value not in json_experience[cinematograph_type][key]:
                         json_experience[cinematograph_type][key].append(value)
-                        print(f'\nДобавлено новое значение для ключа {key}\n')
+                        print('\nДобавлено новое значение для ключа %s\n', key)
                     else:
-                        print(f'\nЗначение уже существует для ключа {key}\n')
+                        print('\nЗначение уже существует для ключа %s\n', key)
 
                     if key in json_current:
                         del json_current[key]
                         save_json(json_current, json_current_path)
                 else:
                     json_experience[cinematograph_type][key] = [value]
-                    print(f'Новый ключ добавлен: {key}')
-            except Exception as e:
-                logger.error(f"Ошибка при обработке ключа {key}: {e}")
+                    print('Новый ключ добавлен: %s', key)
+            except Exception as err:
+                logger.error("Ошибка при обработке ключа %s: %s", key, err)
 
         save_json(json_experience, json_experience_path)
-    except Exception as e:
-        logger.error(f"Ошибка при добавлении данных в JSON: {e}")
+    except Exception as err:
+        logger.error("Ошибка при добавлении данных в JSON: %s", err)
 
 
 def input_movie_data():
@@ -144,15 +120,15 @@ def input_movie_data():
         }
 
         return {movie_title: movie_data}
-    except Exception as e:
-        logger.error(f"Ошибка при вводе данных фильма: {e}")
+    except Exception as err:
+        logger.error("Ошибка при вводе данных фильма: %s", err)
 
 
 def input_series_data():
     try:
         series_title = input("Введите название сериала: ")
         series_date = entering_date().strftime("%Y-%m-%d")
-        user_input_rating_series =input("Введите рейтинг сериала: ")
+        user_input_rating_series = input("Введите рейтинг сериала: ")
         series_rating = int(user_input_rating_series)
         user_input_number_series = input("Введите номер сезона сериала: ")
         series_season = int(user_input_number_series)
@@ -164,8 +140,8 @@ def input_series_data():
         }
 
         return {series_title: series_data}
-    except Exception as e:
-        logger.error(f"Ошибка при вводе данных сериала: {e}")
+    except Exception as err:
+        logger.error("Ошибка при вводе данных сериала: %s", err)
 
 
 def update_cinematograph_json(cinematograph_data, json_current, title, json_data_path):
@@ -182,13 +158,13 @@ def update_cinematograph_json(cinematograph_data, json_current, title, json_data
             try:
                 user_input_current_season = input('Введите текущий сезон: ')
                 if user_input_current_season == '':
-                    print(f"Ваш текущий сезон: {json_current[title]['current_season']}, текущий эпизод: {json_current[title]['current_episode']}")
+                    print("Ваш текущий сезон: %s, текущий эпизод: %s", json_current[title]['current_season'], json_current[title]['current_episode'])
                 else:
                     json_current[title]['current_season'] = int(user_input_current_season)
-                    user_input_total_episodes = input(f'Всего эпизодов в {user_input_current_season} сезоне: ')
+                    user_input_total_episodes = input('Всего эпизодов в %s сезоне: ', user_input_current_season)
                     json_current[title]['total_episodes'] = int(user_input_total_episodes)
-            except Exception as e:
-                logger.error(f"Ошибка при обновлении текущего сезона сериала {title}: {e}")
+            except Exception as err:
+                logger.error("Ошибка при обновлении текущего сезона сериала %s: %s", title, err)
         else:
             json_current[title] = {}
             user_input_current_season = input('Введите текущий сезон: ')
@@ -198,8 +174,8 @@ def update_cinematograph_json(cinematograph_data, json_current, title, json_data
             json_current[title]['total_episodes'] = ''
 
         save_json(json_current, config.json_current)
-    except Exception as e:
-        logger.error(f"Ошибка при обновлении JSON для {title}: {e}")
+    except Exception as err:
+        logger.error("Ошибка при обновлении JSON для %s: %s", title, err)
 
 
 def main():
@@ -227,11 +203,34 @@ def main():
                 json_data_path=config.json_data_path
             )
         subprocess.run(['python', 'create_cinematograph_notes.py'], shell=True, check=False)
-    except Exception as e:
-        logger.error(f"Ошибка в функции main: {e}")
+    except Exception as err:
+        logger.error("Ошибка в функции main: %s", err)
 
+
+def set_logger(log_folder):
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+
+    if log_folder:  # Создание файла с логами только если указана папка
+        log_filename = datetime.now().strftime('%Y-%m-%d %H-%M-%S.log')
+        log_folder = os.path.join(log_folder, 'append_cinematograph_experience')
+        log_file_path = os.path.join(log_folder, log_filename)
+
+        os.makedirs(log_folder, exist_ok=True)
+
+        file_handler = logging.FileHandler(log_file_path, encoding='utf-8')
+        file_handler.setFormatter(formatter)
+        logger.addHandler(file_handler)
+
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(formatter)
+    logger.addHandler(console_handler)
+
+    return logger
+
+
+logger = set_logger(config.log_folder)
 
 if __name__ == "__main__":
-    logger = set_logger(config.log_folder)
-
     main()

@@ -10,38 +10,14 @@ from prettytable import PrettyTable
 import config
 
 
-def set_logger(log_folder):
-    logger = logging.getLogger()
-    logger.setLevel(logging.DEBUG)
-
-    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
-
-    if log_folder:  # Создание файла с логами только если указана папка
-        log_filename = datetime.now().strftime('%Y-%m-%d %H-%M-%S.log')
-        log_folder = os.path.join(log_folder, 'create_cinematograph_notes')
-        log_file_path = os.path.join(log_folder, log_filename)
-
-        os.makedirs(log_folder, exist_ok=True)
-
-        file_handler = logging.FileHandler(log_file_path, encoding='utf-8')
-        file_handler.setFormatter(formatter)
-        logger.addHandler(file_handler)
-
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(formatter)
-    logger.addHandler(console_handler)
-
-    return logger
-
-
 def save_json(data, file_path):
     try:
         file_path = os.path.normpath(file_path)
 
         with open(file_path, 'w', encoding='utf-8') as file:
             json.dump(data, file, ensure_ascii=False, indent=4)
-    except Exception as e:
-        logger.error(f"Ошибка при сохранении файла {file_path}: {e}")
+    except Exception as err:
+        logger.error("Ошибка при сохранении файла %s: %s", file_path, err)
 
 
 def load_json(file_path, default_type):
@@ -52,9 +28,9 @@ def load_json(file_path, default_type):
             with open(file_path, 'r', encoding='utf-8') as file:
                 return json.load(file)
         else:
-            logger.warning(f"Файл {file_path} не найден, возвращаем значение по умолчанию.")
+            logger.warning("Файл %s не найден, возвращаем значение по умолчанию.", file_path)
     except Exception as err:
-        logger.error(f"Ошибка при загрузке файла {file_path}: {err}")
+        logger.error("Ошибка при загрузке файла %s: %s", file_path, err)
 
     return default_type
 
@@ -67,7 +43,7 @@ def normalize_newlines(text, replacements_file_name):
             return text
         return ''
     except Exception as err:
-        logger.error(f"Ошибка при нормализации текста: {err}")
+        logger.error("Ошибка при нормализации текста: %s", err)
 
         return ''
 
@@ -86,15 +62,15 @@ def save_md(data, file_path, replacements_file_name):
             if existing_hash == data_hash:
                 return
 
-            logger.info(f"Различия в файле: {file_name}")
+            logger.info("Различия в файле: %s", file_name)
         else:
-            logger.info(f"Новый файл {file_name}")
+            logger.info("Новый файл %s", file_name)
 
         with open(file_path, "w", encoding='utf-8') as file:
             file.write(data)
 
-    except Exception as e:
-        logger.error(f"Ошибка при сохранении файла {file_name}: {e}")
+    except Exception as err:
+        logger.error("Ошибка при сохранении файла %s: %s", file_name, err)
 
 
 def prettytable_to_markdown(pt: PrettyTable):
@@ -120,7 +96,7 @@ def prettytable_to_markdown(pt: PrettyTable):
 
         return "\n".join(md_table)
     except Exception as err:
-        logger.error(f"Ошибка при преобразовании таблицы в Markdown: {err}")
+        logger.error("Ошибка при преобразовании таблицы в Markdown: %s", err)
 
         return ''
 
@@ -142,7 +118,7 @@ def create_md_table(columns_and_values):
 
         return table
     except Exception as err:
-        logger.error(f"Ошибка при создании Markdown таблицы: {err}")
+        logger.error("Ошибка при создании Markdown таблицы: %s", err)
 
         return None
 
@@ -165,7 +141,7 @@ def get_rating_columns_and_values(experience_data, data):
 
         return rating_columns, rating_values
     except Exception as err:
-        logger.error(f"Ошибка при получении колонок и значений рейтинга: {err}")
+        logger.error("Ошибка при получении колонок и значений рейтинга: %s", err)
 
         return [], []
 
@@ -188,7 +164,7 @@ def get_date_columns_and_values(experience_data, data):
 
         return date_columns, date_values
     except Exception as err:
-        logger.error(f"Ошибка при получении колонок и значений дат: {err}")
+        logger.error("Ошибка при получении колонок и значений дат: %s", err)
 
         return [], []
 
@@ -227,7 +203,7 @@ def get_sequels_and_prequels_columns_and_values(all_ids, data, info, exceptions,
 
         return ['Сиквелы и приквелы'], values
     except Exception as err:
-        logger.error(f"Ошибка при получении сиквелов и приквелов: {err}")
+        logger.error("Ошибка при получении сиквелов и приквелов: %s", err)
 
         return [], []
 
@@ -246,8 +222,15 @@ def create_info(data, title, experience_data, current_cinematograph, exceptions)
             'new_seasons': False
         }
 
-        if data['isSeries'] and 'seasonsInfo' in data and data['seasonsInfo'] and title not in exceptions:
-            info['new_seasons'] = data['seasonsInfo'][-1]['number'] > experience_data[-1]['season'] if experience_data[-1]['season'] else None
+        if data['isSeries'] and 'seasonsInfo' in data and data['seasonsInfo']:
+            if title not in exceptions:
+                last_season_number = data['seasonsInfo'][-1]['number']
+                last_experience_season = experience_data[-1]['season'] if experience_data else None
+
+                if last_experience_season is not None:
+                    info['new_seasons'] = last_season_number > last_experience_season
+                else:
+                    info['new_seasons'] = None
 
         if title in current_cinematograph:
             current = current_cinematograph[title]
@@ -263,7 +246,7 @@ def create_info(data, title, experience_data, current_cinematograph, exceptions)
 
         return info
     except Exception as err:
-        logger.error(f"Ошибка при создании информации: {err}")
+        logger.error("Ошибка при создании информации: %s", err)
 
         return {}
 
@@ -296,7 +279,7 @@ def create_md_content(info, data, experience_data, all_ids, exceptions, replacem
 
         return '\n'.join(text)
     except Exception as err:
-        logger.error(f"Ошибка при создании MD контента: {err}")
+        logger.error("Ошибка при создании MD контента: %s", err)
 
         return ''
 
@@ -315,8 +298,8 @@ def update_cinematograph_notes(notes_folder, replacements_file_name, replacement
 
         os.makedirs(notes_folder, exist_ok=True)
 
-        logger.info(f"Всего фильмов: {len(cinematograph_experience['Movies'])}")
-        logger.info(f"Всего сериалов: {len(cinematograph_experience['Series'] | current_cinematograph)}")
+        logger.info("Всего фильмов: %s", len(cinematograph_experience['Movies']))
+        logger.info("Всего сериалов: %s", len(cinematograph_experience['Series'] | current_cinematograph))
 
         all_titles = set(cinematograph_experience['Movies'] | cinematograph_experience['Series'])
 
@@ -335,7 +318,7 @@ def update_cinematograph_notes(notes_folder, replacements_file_name, replacement
                         "season": current_cinematograph[title]['current_season']
                     })
             except Exception as err:
-                logger.error(f"Ошибка обработки текущего сериала {title}: {err}")
+                logger.error("Ошибка обработки текущего сериала %s: %s", title, err)
 
         cinematograph_experience = cinematograph_experience['Movies'] | cinematograph_experience['Series']
 
@@ -373,9 +356,9 @@ def update_cinematograph_notes(notes_folder, replacements_file_name, replacement
                 file_path = os.path.join(notes_folder, f"{cinematograph_title}.md")
                 save_md(content, file_path, replacements_file_content)
             except Exception as err:
-                logger.error(f"Ошибка при обновлении заметки {title}: {err}")
+                logger.error("Ошибка при обновлении заметки %s: %s", title, err)
     except Exception as err:
-        logger.error(f"Ошибка в функции update_cinematograph_notes: {err}")
+        logger.error("Ошибка в функции update_cinematograph_notes: %s", err)
 
 
 def main():
@@ -398,10 +381,34 @@ def main():
             exceptions=load_json(config.json_exceptions, [])
         )
     except Exception as err:
-        logger.error(f"Ошибка в функции main: {err}")
+        logger.error("Ошибка в функции main: %s", err)
 
+
+def set_logger(log_folder):
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+
+    if log_folder:  # Создание файла с логами только если указана папка
+        log_filename = datetime.now().strftime('%Y-%m-%d %H-%M-%S.log')
+        log_folder = os.path.join(log_folder, 'create_cinematograph_notes')
+        log_file_path = os.path.join(log_folder, log_filename)
+
+        os.makedirs(log_folder, exist_ok=True)
+
+        file_handler = logging.FileHandler(log_file_path, encoding='utf-8')
+        file_handler.setFormatter(formatter)
+        logger.addHandler(file_handler)
+
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(formatter)
+    logger.addHandler(console_handler)
+
+    return logger
+
+
+logger = set_logger(config.log_folder)
 
 if __name__ == "__main__":
-    logger = set_logger(config.log_folder)
-
     main()

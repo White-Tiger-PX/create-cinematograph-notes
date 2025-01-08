@@ -10,33 +10,8 @@ from datetime import datetime, timedelta
 
 import config
 
-
 class ApiError(Exception):
     pass
-
-
-def set_logger(log_folder):
-    logger = logging.getLogger()
-    logger.setLevel(logging.DEBUG)
-
-    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
-
-    if log_folder: # Создание файла с логами только если указана папка
-        log_filename = datetime.now().strftime('%Y-%m-%d %H-%M-%S.log')
-        log_folder = os.path.join(log_folder, 'cinematograph_data_updater')
-        log_file_path = os.path.join(log_folder, log_filename)
-
-        os.makedirs(log_folder, exist_ok=True)
-
-        file_handler = logging.FileHandler(log_file_path, encoding='utf-8')
-        file_handler.setFormatter(formatter)
-        logger.addHandler(file_handler)
-
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(formatter)
-    logger.addHandler(console_handler)
-
-    return logger
 
 
 def save_json(data, file_path):
@@ -46,7 +21,7 @@ def save_json(data, file_path):
         with open(file_path, 'w', encoding='utf-8') as file:
             json.dump(data, file, ensure_ascii=False, indent=4)
     except Exception as err:
-        logger.error(f"Ошибка при сохранении JSON в {file_path}: {err}")
+        logger.error("Ошибка при сохранении JSON в %s: %s", file_path, err)
 
 
 def load_json(file_path, default_type):
@@ -59,7 +34,7 @@ def load_json(file_path, default_type):
 
             return data
     except Exception as err:
-        logger.error(f"Ошибка при загрузке JSON из {file_path}: {err}")
+        logger.error("Ошибка при загрузке JSON из %s: %s", file_path, err)
 
     return default_type
 
@@ -79,10 +54,10 @@ def updating_unknown_object(cinematograph_title, api_key):
 
             return movies.get('docs', [])
         else:
-            logger.error(f"API Error {response.status_code}: {response.text}")
+            logger.error("API Error %s: %s", response.status_code, response.text)
 
     except Exception as err:
-        logger.error(f"Ошибка при поиске данных для {cinematograph_title}: {err}")
+        logger.error("Ошибка при поиске данных для %s: %s", cinematograph_title, err)
 
     return []
 
@@ -102,10 +77,10 @@ def updating_known_object(old_cinematograph_data, api_key, kp_id):
 
             return current_cinematograph_data
         else:
-            logger.error(f"API Error {response.status_code}: {response.text}")
+            logger.error("API Error %s: %s", response.status_code, response.text)
 
     except Exception as err:
-        logger.error(f"Ошибка при обновлении данных для {kp_id}: {err}")
+        logger.error("Ошибка при обновлении данных для %s: %s", kp_id, err)
 
     return old_cinematograph_data
 
@@ -125,7 +100,7 @@ def updating_object_images(cinematograph_data, api_key, kp_id):
             )
 
             if response.status_code != 200:
-                logger.error(f"API Error {response.status_code}: {response.text}")
+                logger.error("API Error %s: %s", response.status_code, response.text)
                 break
 
             data = response.json()
@@ -142,7 +117,7 @@ def updating_object_images(cinematograph_data, api_key, kp_id):
         return cinematograph_data
 
     except Exception as err:
-        logger.error(f"Ошибка при обновлении изображений для {kp_id}: {err}")
+        logger.error("Ошибка при обновлении изображений для %s: %s", kp_id, err)
 
     return cinematograph_data
 
@@ -151,7 +126,6 @@ def show_message_box(title, message):
     MB_OKCANCEL = 0x1
 
     return ctypes.windll.user32.MessageBoxW(None, message, title, MB_OKCANCEL)
-
 
 def update_cinematograph_json(cinematograph_experience, cinematograph_data, json_data_path, update_threshold, api_key):
     try:
@@ -177,7 +151,7 @@ def update_cinematograph_json(cinematograph_experience, cinematograph_data, json
 
                     time.sleep(5)
             except Exception as err:
-                logger.error(f"Ошибка при обновлении данных для {title}: {err}")
+                logger.error("Ошибка при обновлении данных для %s: %s", title, err)
 
         for title in unknown_cinematograph_titles:
             try:
@@ -185,7 +159,7 @@ def update_cinematograph_json(cinematograph_experience, cinematograph_data, json
 
                 for new_info in new_data:
                     webbrowser.open(f"https://www.kinopoisk.ru/film/{new_info['id']}")
-                    user_choice = show_message_box("Обновление данных", f"Это подходящая страница для: {title}?")
+                    user_choice = show_message_box("Обновление данных", "Это подходящая страница для: %s?" % title)
 
                     if user_choice == 1:
                         new_info = updating_object_images(new_info, api_key, new_info['id'])
@@ -193,12 +167,12 @@ def update_cinematograph_json(cinematograph_experience, cinematograph_data, json
                         cinematograph_data[title] = new_info
                         break
             except Exception as err:
-                logger.error(f"Ошибка при обновлении данных для неизвестного объекта {title}: {err}")
+                logger.error("Ошибка при обновлении данных для неизвестного объекта %s: %s", title, err)
 
         save_json(cinematograph_data, json_data_path)
 
     except Exception as err:
-        logger.error(f"Ошибка в функции update_cinematograph_json: {err}")
+        logger.error("Ошибка в функции update_cinematograph_json: %s", err)
 
 
 def main():
@@ -217,10 +191,34 @@ def main():
             api_key=config.api_key
         )
     except Exception as err:
-        logger.error(f"Ошибка в функции main: {err}")
+        logger.error("Ошибка в функции main: %s", err)
 
+
+def set_logger(log_folder):
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+
+    if log_folder:  # Создание файла с логами только если указана папка
+        log_filename = datetime.now().strftime('%Y-%m-%d %H-%M-%S.log')
+        log_folder = os.path.join(log_folder, 'cinematograph_data_updater')
+        log_file_path = os.path.join(log_folder, log_filename)
+
+        os.makedirs(log_folder, exist_ok=True)
+
+        file_handler = logging.FileHandler(log_file_path, encoding='utf-8')
+        file_handler.setFormatter(formatter)
+        logger.addHandler(file_handler)
+
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(formatter)
+    logger.addHandler(console_handler)
+
+    return logger
+
+
+logger = set_logger(config.log_folder)
 
 if __name__ == "__main__":
-    logger = set_logger(config.log_folder)
-
     main()

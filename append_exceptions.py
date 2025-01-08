@@ -5,20 +5,26 @@ import config
 
 
 def save_json(data, file_path):
-    file_path = os.path.normpath(file_path)
+    try:
+        file_path = os.path.normpath(file_path)
 
-    with open(file_path, 'w', encoding='utf-8') as file:
-        json.dump(data, file, ensure_ascii=False, indent=4)
+        with open(file_path, 'w', encoding='utf-8') as file:
+            json.dump(data, file, ensure_ascii=False, indent=4)
+    except Exception as err:
+        print(f"Ошибка при сохранении JSON в {file_path}: {err}")
 
 
 def load_json(file_path, default_type):
-    file_path = os.path.normpath(file_path)
+    try:
+        file_path = os.path.normpath(file_path)
 
-    if os.path.exists(file_path):
-        with open(file_path, 'r', encoding='utf-8') as file:
-            data = json.load(file)
+        if os.path.exists(file_path):
+            with open(file_path, 'r', encoding='utf-8') as file:
+                data = json.load(file)
 
-        return data
+            return data
+    except Exception as err:
+        print(f"Ошибка при загрузке JSON из {file_path}: {err}")
 
     return default_type
 
