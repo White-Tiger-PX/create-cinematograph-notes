@@ -1,34 +1,11 @@
 import os
-import json
 import logging
 import subprocess
 
 from datetime import datetime, timedelta
+from utils_json import load_json, save_json
 
 import config
-
-
-def save_json(data, file_path):
-    try:
-        file_path = os.path.normpath(file_path)
-
-        with open(file_path, 'w', encoding='utf-8') as file:
-            json.dump(data, file, ensure_ascii=False, indent=4)
-    except Exception as err:
-        logger.error("Ошибка при сохранении JSON в файл %s: %s", file_path, err)
-
-
-def load_json(file_path, default_type):
-    try:
-        file_path = os.path.normpath(file_path)
-        if os.path.exists(file_path):
-            with open(file_path, 'r', encoding='utf-8') as file:
-                return json.load(file)
-        return default_type
-    except Exception as err:
-        logger.error("Ошибка при загрузке JSON из файла %s: %s", file_path, err)
-
-        return default_type
 
 
 def entering_date():
@@ -72,8 +49,8 @@ def entering_date():
 
 def add_data_to_json(json_experience_path, json_current_path, cinematograph_type):
     try:
-        json_experience = load_json(json_experience_path, {})
-        json_current = load_json(json_current_path, {})
+        json_experience = load_json(json_experience_path, {}, logger)
+        json_current = load_json(json_current_path, {}, logger)
 
         if cinematograph_type == 'Movies':
             data = input_movie_data()
@@ -82,7 +59,7 @@ def add_data_to_json(json_experience_path, json_current_path, cinematograph_type
 
             if list(data.keys())[0] in list(json_current.keys()):
                 del json_current[list(data.keys())[0]]
-                save_json(json_current, json_current_path)
+                save_json(json_current, json_current_path, logger)
 
         for key, value in data.items():
             try:
@@ -95,14 +72,14 @@ def add_data_to_json(json_experience_path, json_current_path, cinematograph_type
 
                     if key in json_current:
                         del json_current[key]
-                        save_json(json_current, json_current_path)
+                        save_json(json_current, json_current_path, logger)
                 else:
                     json_experience[cinematograph_type][key] = [value]
                     print('Новый ключ добавлен: %s', key)
             except Exception as err:
                 logger.error("Ошибка при обработке ключа %s: %s", key, err)
 
-        save_json(json_experience, json_experience_path)
+        save_json(json_experience, json_experience_path, logger)
     except Exception as err:
         logger.error("Ошибка при добавлении данных в JSON: %s", err)
 
@@ -150,9 +127,9 @@ def update_cinematograph_json(cinematograph_data, json_current, title, json_data
             cinematograph_data[title] = {
                 "date_update": "2000-01-01",
             }
-            save_json(cinematograph_data, json_data_path)
+            save_json(cinematograph_data, json_data_path, logger)
             subprocess.run(['python', 'create_cinematograph_notes.py'], shell=True, check=True)
-            cinematograph_data = load_json(json_data_path, {})
+            cinematograph_data = load_json(json_data_path, {}, logger)
 
         if title in json_current:
             try:
@@ -173,7 +150,7 @@ def update_cinematograph_json(cinematograph_data, json_current, title, json_data
             json_current[title]['current_episode'] = int(user_input_current_episode)
             json_current[title]['total_episodes'] = ''
 
-        save_json(json_current, config.json_current)
+        save_json(json_current, config.json_current, logger)
     except Exception as err:
         logger.error("Ошибка при обновлении JSON для %s: %s", title, err)
 
@@ -181,10 +158,10 @@ def update_cinematograph_json(cinematograph_data, json_current, title, json_data
 def main():
     try:
         if not os.path.exists(config.json_experience):
-            save_json({'Movies': {}, 'Series': {}}, config.json_experience)
+            save_json({'Movies': {}, 'Series': {}}, config.json_experience, logger)
 
         if not os.path.exists(config.json_data_path):
-            save_json({}, config.json_data_path)
+            save_json({}, config.json_data_path, logger)
 
         print('Вы добавляете:\n1. Фильм\n2. Сериал\n3. Просмотренная серия сериала\n')
 
@@ -197,8 +174,8 @@ def main():
         elif choice == '3':
             title = input('Введите название сериала: ')
             update_cinematograph_json(
-                cinematograph_data=load_json(config.json_data_path, {}),
-                json_current=load_json(config.json_current, {}),
+                cinematograph_data=load_json(config.json_data_path, {}, logger),
+                json_current=load_json(config.json_current, {}, logger),
                 title=title,
                 json_data_path=config.json_data_path
             )

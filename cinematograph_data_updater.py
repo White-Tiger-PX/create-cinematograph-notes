@@ -1,42 +1,17 @@
 import os
 import time
-import json
 import ctypes
 import logging
 import requests
 import webbrowser
 
 from datetime import datetime, timedelta
+from utils_json import load_json, save_json
 
 import config
 
 class ApiError(Exception):
     pass
-
-
-def save_json(data, file_path):
-    try:
-        file_path = os.path.normpath(file_path)
-
-        with open(file_path, 'w', encoding='utf-8') as file:
-            json.dump(data, file, ensure_ascii=False, indent=4)
-    except Exception as err:
-        logger.error("Ошибка при сохранении JSON в %s: %s", file_path, err)
-
-
-def load_json(file_path, default_type):
-    try:
-        file_path = os.path.normpath(file_path)
-
-        if os.path.exists(file_path):
-            with open(file_path, 'r', encoding='utf-8') as file:
-                data = json.load(file)
-
-            return data
-    except Exception as err:
-        logger.error("Ошибка при загрузке JSON из %s: %s", file_path, err)
-
-    return default_type
 
 
 def updating_unknown_object(cinematograph_title, api_key):
@@ -159,17 +134,18 @@ def update_cinematograph_json(cinematograph_experience, cinematograph_data, json
 
                 for new_info in new_data:
                     webbrowser.open(f"https://www.kinopoisk.ru/film/{new_info['id']}")
-                    user_choice = show_message_box("Обновление данных", "Это подходящая страница для: %s?" % title)
+                    time.sleep(2)
+                    user_choice = show_message_box("Обновление данных", f"Это подходящая страница для: {title}")
 
                     if user_choice == 1:
                         new_info = updating_object_images(new_info, api_key, new_info['id'])
-                        new_info['date_update'] = datetime.now().strftime('%Y-%m-%d')
+                        new_info['date_update'] = (datetime.now() - timedelta(days=365)).strftime('%Y-%m-%d')
                         cinematograph_data[title] = new_info
                         break
             except Exception as err:
                 logger.error("Ошибка при обновлении данных для неизвестного объекта %s: %s", title, err)
 
-        save_json(cinematograph_data, json_data_path)
+        save_json(cinematograph_data, json_data_path, logger)
 
     except Exception as err:
         logger.error("Ошибка в функции update_cinematograph_json: %s", err)
@@ -178,14 +154,14 @@ def update_cinematograph_json(cinematograph_experience, cinematograph_data, json
 def main():
     try:
         if not os.path.exists(config.json_experience):
-            save_json({'Movies': {}, 'Series': {}}, config.json_experience)
+            save_json({'Movies': {}, 'Series': {}}, config.json_experience, logger)
 
         if not os.path.exists(config.json_data_path):
-            save_json({}, config.json_data_path)
+            save_json({}, config.json_data_path, logger)
 
         update_cinematograph_json(
-            cinematograph_experience=load_json(config.json_experience, {}),
-            cinematograph_data=load_json(config.json_data_path, {}),
+            cinematograph_experience=load_json(config.json_experience, {}, logger),
+            cinematograph_data=load_json(config.json_data_path, {}, logger),
             json_data_path=config.json_data_path,
             update_threshold=config.update_threshold,
             api_key=config.api_key

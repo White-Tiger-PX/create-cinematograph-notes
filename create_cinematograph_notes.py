@@ -1,38 +1,13 @@
 import os
-import json
 import hashlib
 import logging
 import subprocess
 
 from datetime import datetime
 from prettytable import PrettyTable
+from utils_json import load_json, save_json
 
 import config
-
-
-def save_json(data, file_path):
-    try:
-        file_path = os.path.normpath(file_path)
-
-        with open(file_path, 'w', encoding='utf-8') as file:
-            json.dump(data, file, ensure_ascii=False, indent=4)
-    except Exception as err:
-        logger.error("Ошибка при сохранении файла %s: %s", file_path, err)
-
-
-def load_json(file_path, default_type):
-    try:
-        file_path = os.path.normpath(file_path)
-
-        if os.path.exists(file_path):
-            with open(file_path, 'r', encoding='utf-8') as file:
-                return json.load(file)
-        else:
-            logger.warning("Файл %s не найден, возвращаем значение по умолчанию.", file_path)
-    except Exception as err:
-        logger.error("Ошибка при загрузке файла %s: %s", file_path, err)
-
-    return default_type
 
 
 def normalize_newlines(text, replacements_file_name):
@@ -40,6 +15,7 @@ def normalize_newlines(text, replacements_file_name):
         if isinstance(text, str):
             for old, new in replacements_file_name.items():
                 text = text.replace(old, new)
+
             return text
         return ''
     except Exception as err:
@@ -169,15 +145,15 @@ def get_date_columns_and_values(experience_data, data):
         return [], []
 
 
-def get_sequels_and_prequels_columns_and_values(all_ids, data, info, exceptions, replacements_file_name):
+def get_sequels_and_prequels_columns_and_values(all_ids_in_local_data, data, info, exceptions, replacements_file_name):
     try:
         values = []
 
         if 'sequelsAndPrequels' in data and len(data['sequelsAndPrequels']) > 0:
             for item in data['sequelsAndPrequels']:
-                par1 = item['name'] in exceptions
-                par2 = item['id'] in all_ids
-                par3 = item['poster']['url'] in exceptions
+                name_in_exceptions = item['name'] in exceptions
+                content_in_local_data = item['id'] in all_ids_in_local_data
+                poster_in_exceptions = item['poster']['url'] in exceptions
 
                 stringh_item_name = str(item['name'])
 
@@ -187,13 +163,13 @@ def get_sequels_and_prequels_columns_and_values(all_ids, data, info, exceptions,
 
                     stringh_item_name = stringh_item_name + f" ({item['year']})"
 
-                if not par3:
-                    if not par1 and not par2:
+                if not poster_in_exceptions:
+                    if not name_in_exceptions and not content_in_local_data:
                         info['sequels_and_prequels_titles'].append(stringh_item_name)
                         info['sequels_and_prequels_links'].append(item['poster']['url'])
                         info['sequels_and_prequels'] = True
 
-                    if par2 and item['name']:
+                    if content_in_local_data and item['name']:
                         for old, new in replacements_file_name.items():
                             item['name'] = item['name'].replace(old, new)
 
@@ -251,13 +227,13 @@ def create_info(data, title, experience_data, current_cinematograph, exceptions)
         return {}
 
 
-def create_md_content(info, data, experience_data, all_ids, exceptions, replacements_file_name):
+def create_md_content(info, data, experience_data, all_ids_in_local_data, exceptions, replacements_file_name):
     try:
         date_table = create_md_table(get_date_columns_and_values(experience_data, data))
         rating_table = create_md_table(get_rating_columns_and_values(experience_data, data))
         sequels_and_prequels_table = create_md_table(
             get_sequels_and_prequels_columns_and_values(
-                all_ids,
+                all_ids_in_local_data,
                 data,
                 info,
                 exceptions,
@@ -322,7 +298,7 @@ def update_cinematograph_notes(notes_folder, replacements_file_name, replacement
 
         cinematograph_experience = cinematograph_experience['Movies'] | cinematograph_experience['Series']
 
-        all_ids = [
+        all_ids_in_local_data = [
             cinematograph_data[item]['id']
             for item in cinematograph_experience
             if item in cinematograph_data
@@ -337,7 +313,7 @@ def update_cinematograph_notes(notes_folder, replacements_file_name, replacement
             try:
                 data = cinematograph_data[title]
                 info = create_info(data, title, experience_data, current_cinematograph, exceptions)
-                content = create_md_content(info, data, experience_data, all_ids, exceptions, replacements_file_name)
+                content = create_md_content(info, data, experience_data, all_ids_in_local_data, exceptions, replacements_file_name)
 
                 title_count = sum(
                     1
@@ -364,10 +340,10 @@ def update_cinematograph_notes(notes_folder, replacements_file_name, replacement
 def main():
     try:
         if not os.path.exists(config.json_experience):
-            save_json({'Movies': {}, 'Series': {}}, config.json_experience)
+            save_json({'Movies': {}, 'Series': {}}, config.json_experience, logger)
 
         if not os.path.exists(config.json_data_path):
-            save_json({}, config.json_data_path)
+            save_json({}, config.json_data_path, logger)
 
         subprocess.run(['python', 'cinematograph_data_updater.py'], shell=True, check=True)
 
@@ -375,10 +351,10 @@ def main():
             notes_folder=config.cinematograph_notes_folder,
             replacements_file_name=config.replacements_file_name,
             replacements_file_content=config.replacements_file_content,
-            cinematograph_experience=load_json(config.json_experience, {}),
-            cinematograph_data=load_json(config.json_data_path, {}),
-            current_cinematograph=load_json(config.json_current, {}),
-            exceptions=load_json(config.json_exceptions, [])
+            cinematograph_experience=load_json(config.json_experience, {}, logger),
+            cinematograph_data=load_json(config.json_data_path, {}, logger),
+            current_cinematograph=load_json(config.json_current, {}, logger),
+            exceptions=load_json(config.json_exceptions, [], logger)
         )
     except Exception as err:
         logger.error("Ошибка в функции main: %s", err)
