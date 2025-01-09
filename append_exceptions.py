@@ -7,8 +7,8 @@ from utils_json import load_json, save_json
 
 
 def main():
-    if not os.path.exists(config.json_exceptions):
-        save_json([], config.json_exceptions, logger)
+    if not os.path.exists(config.json_exceptions_path):
+        save_json([], config.json_exceptions_path, logger)
 
     exception = None
     exceptions = []
@@ -19,10 +19,10 @@ def main():
         if exception != '':
             exceptions.append(exception)
 
-    current_exceptions = load_json(config.json_exceptions, [], logger)
+    current_exceptions = load_json(config.json_exceptions_path, [], logger)
     current_exceptions.extend(exceptions)
 
-    save_json(current_exceptions, config.json_exceptions, logger)
+    save_json(current_exceptions, config.json_exceptions_path, logger)
 
 
 logger = set_logger(log_folder=config.log_folder, log_subfolder_name='append_exceptions')

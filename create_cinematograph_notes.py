@@ -145,14 +145,14 @@ def get_date_columns_and_values(experience_data, data):
         return [], []
 
 
-def get_sequels_and_prequels_columns_and_values(all_ids_in_local_data, data, info, exceptions, replacements_file_name):
+def get_sequels_and_prequels_columns_and_values(all_ids, data, info, exceptions, replacements_file_name):
     try:
         values = []
 
         if 'sequelsAndPrequels' in data and len(data['sequelsAndPrequels']) > 0:
             for item in data['sequelsAndPrequels']:
                 name_in_exceptions = item['name'] in exceptions
-                content_in_local_data = item['id'] in all_ids_in_local_data
+                content_in_local_data = item['id'] in all_ids
                 poster_in_exceptions = item['poster']['url'] in exceptions
 
                 stringh_item_name = str(item['name'])
@@ -184,7 +184,7 @@ def get_sequels_and_prequels_columns_and_values(all_ids_in_local_data, data, inf
         return [], []
 
 
-def create_info(data, title, experience_data, current_cinematograph, exceptions):
+def create_info(data, title, experience_data, current_series, exceptions):
     try:
         info = {
             'tag': ['#Cinematograph'],
@@ -208,8 +208,8 @@ def create_info(data, title, experience_data, current_cinematograph, exceptions)
                 else:
                     info['new_seasons'] = None
 
-        if title in current_cinematograph:
-            current = current_cinematograph[title]
+        if title in current_series:
+            current = current_series[title]
             percentage = int(current['current_episode'] / current['total_episodes'] * 100)
 
             info.update({
@@ -217,7 +217,7 @@ def create_info(data, title, experience_data, current_cinematograph, exceptions)
                 'current_episode': current['current_episode'],
                 'total_episodes': current['total_episodes'],
                 'progress': f'<progress max=100 value={percentage}> </progress> {percentage}%',
-                'in_the_process_of_watching': current['in_the_process_of_watching']
+                'in_the_process_of_watching': True
             })
 
         return info
@@ -227,13 +227,13 @@ def create_info(data, title, experience_data, current_cinematograph, exceptions)
         return {}
 
 
-def create_md_content(info, data, experience_data, all_ids_in_local_data, exceptions, replacements_file_name):
+def create_md_content(info, data, experience_data, all_ids, exceptions, replacements_file_name):
     try:
         date_table = create_md_table(get_date_columns_and_values(experience_data, data))
         rating_table = create_md_table(get_rating_columns_and_values(experience_data, data))
         sequels_and_prequels_table = create_md_table(
             get_sequels_and_prequels_columns_and_values(
-                all_ids_in_local_data,
+                all_ids,
                 data,
                 info,
                 exceptions,
@@ -260,7 +260,7 @@ def create_md_content(info, data, experience_data, all_ids_in_local_data, except
         return ''
 
 
-def update_cinematograph_notes(notes_folder, replacements_file_name, replacements_file_content, cinematograph_experience, cinematograph_data, current_cinematograph, exceptions):
+def update_cinematograph_notes(notes_folder, replacements_file_name, replacements_file_content, cinematograph_experience, cinematograph_data, current_series, exceptions):
     try:
         if not cinematograph_experience:
             logger.warning("Список опыта кинематографа пуст.")
@@ -274,55 +274,62 @@ def update_cinematograph_notes(notes_folder, replacements_file_name, replacement
 
         os.makedirs(notes_folder, exist_ok=True)
 
-        logger.info("Всего фильмов: %s", len(cinematograph_experience['Movies']))
-        logger.info("Всего сериалов: %s", len(cinematograph_experience['Series'] | current_cinematograph))
+        all_titles = set(cinematograph_experience.keys())
+        all_ids = [int(value['kp_id']) for title, value in cinematograph_experience.items()]
 
-        all_titles = set(cinematograph_experience['Movies'] | cinematograph_experience['Series'])
+        count_movies = len([
+            value['kp_id']
+            for title, value in cinematograph_experience.items()
+            if not cinematograph_data[value['kp_id']]['isSeries']
+        ])
 
-        for title in current_cinematograph:
+        all_series = cinematograph_experience | current_series
+
+        count_series = len([
+            value['kp_id']
+            for title, value in all_series.items()
+            if cinematograph_data[value['kp_id']]['isSeries']
+        ])
+
+        logger.info("Всего фильмов: %s", count_movies)
+        logger.info("Всего сериалов: %s", count_series)
+
+        for title in current_series:
             try:
-                if title not in all_titles:
-                    cinematograph_experience['Series'][title] = [{
+                if title in all_titles:
+
+                    cinematograph_experience[title]['experience'].append({
                         "date": 'in progress',
                         "rating": '',
-                        "season": current_cinematograph[title]['current_season']
-                    }]
-                else:
-                    cinematograph_experience['Series'][title].append({
-                        "date": 'in progress',
-                        "rating": '',
-                        "season": current_cinematograph[title]['current_season']
+                        "season": current_series[title]['current_season']
                     })
+                else:
+                    cinematograph_experience[title] = {'experience': [], 'kp_id': current_series[title]['kp_id']}
+                    cinematograph_experience[title]['experience'] = [{
+                        "date": 'in progress',
+                        "rating": '',
+                        "season": current_series[title]['current_season']
+                    }]
             except Exception as err:
+                print(cinematograph_experience[title])
                 logger.error("Ошибка обработки текущего сериала %s: %s", title, err)
 
-        cinematograph_experience = cinematograph_experience['Movies'] | cinematograph_experience['Series']
-
-        all_ids_in_local_data = [
-            cinematograph_data[item]['id']
-            for item in cinematograph_experience
-            if item in cinematograph_data
-        ]
-
-        all_official_names = [
-            cinematograph_data[title]['name']
-            for title in cinematograph_experience
-        ]
-
-        for title, experience_data in cinematograph_experience.items():
+        for title, data in cinematograph_experience.items():
             try:
-                data = cinematograph_data[title]
-                info = create_info(data, title, experience_data, current_cinematograph, exceptions)
-                content = create_md_content(info, data, experience_data, all_ids_in_local_data, exceptions, replacements_file_name)
+                experience_data = data['experience']
+                kp_id = cinematograph_experience[title]['kp_id']
+                data = cinematograph_data[kp_id]
+                info = create_info(data, title, experience_data, current_series, exceptions)
+                content = create_md_content(info, data, experience_data, all_ids, exceptions, replacements_file_name)
 
                 title_count = sum(
                     1
-                    for key in all_official_names
-                    if cinematograph_data[title]['name'] == key
+                    for key in cinematograph_data
+                    if cinematograph_data[kp_id]['name'] == cinematograph_data[key]['name']
                 )
 
-                if cinematograph_data[title]['name'] and title_count < 2:
-                    cinematograph_title = cinematograph_data[title]['name']
+                if cinematograph_data[kp_id]['name'] and title_count < 2:
+                    cinematograph_title = cinematograph_data[kp_id]['name']
                 else:
                     cinematograph_title = title
 
@@ -339,8 +346,8 @@ def update_cinematograph_notes(notes_folder, replacements_file_name, replacement
 
 def main():
     try:
-        if not os.path.exists(config.json_experience):
-            save_json({'Movies': {}, 'Series': {}}, config.json_experience, logger)
+        if not os.path.exists(config.json_experience_path):
+            save_json({}, config.json_experience_path, logger)
 
         if not os.path.exists(config.json_data_path):
             save_json({}, config.json_data_path, logger)
@@ -351,10 +358,10 @@ def main():
             notes_folder=config.cinematograph_notes_folder,
             replacements_file_name=config.replacements_file_name,
             replacements_file_content=config.replacements_file_content,
-            cinematograph_experience=load_json(config.json_experience, {}, logger),
+            cinematograph_experience=load_json(config.json_experience_path, {}, logger),
             cinematograph_data=load_json(config.json_data_path, {}, logger),
-            current_cinematograph=load_json(config.json_current, {}, logger),
-            exceptions=load_json(config.json_exceptions, [], logger)
+            current_series=load_json(config.json_current_path, {}, logger),
+            exceptions=load_json(config.json_exceptions_path, [], logger),
         )
     except Exception as err:
         logger.error("Ошибка в функции main: %s", err)

@@ -1,5 +1,8 @@
 import os
-import logging
+import time
+import ctypes
+import requests
+import webbrowser
 import subprocess
 
 from datetime import datetime, timedelta
@@ -10,9 +13,14 @@ from set_logger import set_logger
 from utils_json import load_json, save_json
 
 
+class ApiError(Exception):
+    pass
+
+
 def entering_date():
     try:
         now = datetime.now()
+
         while True:
             try:
                 date_str = input("Введите дату (DD / MM DD / YYYY MM DD): ")
@@ -49,43 +57,6 @@ def entering_date():
         logger.error("Ошибка при вводе даты: %s", err)
 
 
-def add_data_to_json(json_experience_path, json_current_path, cinematograph_type):
-    try:
-        json_experience = load_json(json_experience_path, {}, logger)
-        json_current = load_json(json_current_path, {}, logger)
-
-        if cinematograph_type == 'Movies':
-            data = input_movie_data()
-        elif cinematograph_type == 'Series':
-            data = input_series_data()
-
-            if list(data.keys())[0] in list(json_current.keys()):
-                del json_current[list(data.keys())[0]]
-                save_json(json_current, json_current_path, logger)
-
-        for key, value in data.items():
-            try:
-                if key in json_experience[cinematograph_type]:
-                    if value not in json_experience[cinematograph_type][key]:
-                        json_experience[cinematograph_type][key].append(value)
-                        print('\nДобавлено новое значение для ключа %s\n', key)
-                    else:
-                        print('\nЗначение уже существует для ключа %s\n', key)
-
-                    if key in json_current:
-                        del json_current[key]
-                        save_json(json_current, json_current_path, logger)
-                else:
-                    json_experience[cinematograph_type][key] = [value]
-                    print('Новый ключ добавлен: %s', key)
-            except Exception as err:
-                logger.error("Ошибка при обработке ключа %s: %s", key, err)
-
-        save_json(json_experience, json_experience_path, logger)
-    except Exception as err:
-        logger.error("Ошибка при добавлении данных в JSON: %s", err)
-
-
 def input_movie_data():
     try:
         movie_title = input("Введите название фильма: ")
@@ -98,7 +69,7 @@ def input_movie_data():
             "rating": movie_rating
         }
 
-        return {movie_title: movie_data}
+        return {movie_title: {"experience": [movie_data], "kp_id": None}}
     except Exception as err:
         logger.error("Ошибка при вводе данных фильма: %s", err)
 
@@ -114,53 +85,170 @@ def input_series_data():
 
         series_data = {
             "date": series_date,
-            "rating": series_rating,
-            "season": series_season
+            "season": series_season,
+            "rating": series_rating
         }
 
-        return {series_title: series_data}
+        return {series_title: {"experience": [series_data], "kp_id": None}}
     except Exception as err:
         logger.error("Ошибка при вводе данных сериала: %s", err)
 
 
-def update_cinematograph_json(cinematograph_data, json_current, title, json_data_path):
+def add_cinematograph_experience(cinematograph_experience_path, cinematograph_current_path, cinematograph_type):
     try:
-        if title not in cinematograph_data:
-            cinematograph_data[title] = {
-                "date_update": "2000-01-01",
-            }
-            save_json(cinematograph_data, json_data_path, logger)
-            subprocess.run(['python', 'create_cinematograph_notes.py'], shell=True, check=True)
-            cinematograph_data = load_json(json_data_path, {}, logger)
+        cinematograph_experience = load_json(cinematograph_experience_path, {}, logger)
+        cinematograph_current = load_json(cinematograph_current_path, {}, logger)
 
-        if title in json_current:
-            try:
+        if cinematograph_type == 'Movies':
+            data = input_movie_data()
+        elif cinematograph_type == 'Series':
+            data = input_series_data()
+
+            # Если пользователь ставит оценку сезону — значит он закончил его просмотр,
+            # можно удалить его из просматриваемых
+            if list(data.keys())[0] in list(cinematograph_current.keys()):
+                del cinematograph_current[list(data.keys())[0]]
+
+                save_json(cinematograph_current, cinematograph_current_path, logger)
+
+        for key, value in data.items():
+            kp_id = value.get('kp_id', None)
+
+            # Добавляем kp_id в cinematograph_experience, если это новый ключ
+            if key in cinematograph_experience:
+                cinematograph_experience[key]['experience'].append(value['experience'][0])
+                logger.info('Добавлено новое значение для ключа %s', key)
+            else:
+                cinematograph_experience[key] = value
+                logger.info('Новый ключ добавлен: %s', key)
+
+            if kp_id:
+                if key not in cinematograph_current:
+                    cinematograph_current[key] = {}
+
+                cinematograph_current[key]['kp_id'] = kp_id
+                logger.info('Добавлен kp_id для %s', key)
+
+        save_json(cinematograph_experience, cinematograph_experience_path, logger)
+        save_json(cinematograph_current, cinematograph_current_path, logger)
+    except Exception as err:
+        logger.error("Ошибка при добавлении данных в JSON: %s", err)
+
+
+def update_cinematograph_json(cinematograph_data_path, cinematograph_current_path, cinematograph_experience_path, title, api_key):
+    try:
+        cinematograph_experience = load_json(cinematograph_experience_path, {}, logger)
+        cinematograph_current = load_json(cinematograph_current_path, {}, logger)
+        cinematograph_data = load_json(cinematograph_data_path, {}, logger)
+
+        found_id = None
+
+        if title in cinematograph_current:
+            found_id = next((val['kp_id'] for key, val in cinematograph_current.items() if key.lower() == title.lower()), None)
+
+        if not found_id and title in cinematograph_experience:
+            experience_data = cinematograph_experience[title]
+            found_id = experience_data.get('kp_id')
+
+            if found_id:
+                webbrowser.open(f"https://www.kinopoisk.ru/film/{found_id}")
+                time.sleep(2)
+                user_choice = show_message_box("Подтверждение", f"Это подходящая страница для: {title}?")
+
+                if user_choice != 1:
+                    found_id = None
+
+        # Если ID не найдено, ищем через API
+        if not found_id:
+            logger.info("ID не найдено для %s, ищем название через API...", title)
+            new_data = updating_unknown_object(title, api_key)
+
+            for new_info in new_data:
+                webbrowser.open(f"https://www.kinopoisk.ru/film/{new_info['id']}")
+                time.sleep(2)
+                user_choice = show_message_box("Обновление данных", f"Это подходящая страница для: {title}?")
+
+                if user_choice == 1:
+                    found_id = new_info['id']
+                    new_info['date_update'] = (datetime.now() - timedelta(days=365)).strftime('%Y-%m-%d')
+                    cinematograph_data[found_id] = new_info
+                    cinematograph_data[found_id]['title'] = title  # Сохраняем заголовок для будущих проверок
+                    save_json(cinematograph_data, cinematograph_data_path, logger)
+                    break
+
+        if found_id:
+            if title not in cinematograph_current:
+                cinematograph_current[title] = {}
+
+            past_current_season = cinematograph_current[title].get('current_season')
+            past_current_episode = cinematograph_current[title].get('current_episode')
+            past_total_episodes = cinematograph_current[title].get('total_episodes')
+
+            if past_current_season is not None:
+                user_input_current_season = input(f'Введите текущий сезон (Enter, чтобы оставить {past_current_season}): ')
+                cinematograph_current[title]['current_season'] = int(user_input_current_season) if user_input_current_season else past_current_season
+            else:
                 user_input_current_season = input('Введите текущий сезон: ')
-                if user_input_current_season == '':
-                    print("Ваш текущий сезон: %s, текущий эпизод: %s", json_current[title]['current_season'], json_current[title]['current_episode'])
-                else:
-                    json_current[title]['current_season'] = int(user_input_current_season)
-                    user_input_total_episodes = input('Всего эпизодов в %s сезоне: ', user_input_current_season)
-                    json_current[title]['total_episodes'] = int(user_input_total_episodes)
-            except Exception as err:
-                logger.error("Ошибка при обновлении текущего сезона сериала %s: %s", title, err)
-        else:
-            json_current[title] = {}
-            user_input_current_season = input('Введите текущий сезон: ')
-            json_current[title]['current_season'] = int(user_input_current_season)
-            user_input_current_episode = input('Введите текущий эпизод: ')
-            json_current[title]['current_episode'] = int(user_input_current_episode)
-            json_current[title]['total_episodes'] = ''
+                cinematograph_current[title]['current_season'] = int(user_input_current_season)
 
-        save_json(json_current, config.json_current, logger)
+            if past_current_episode is not None:
+                user_input_current_episode = input(f'Введите текущий эпизод (Enter, чтобы оставить {past_current_episode}): ')
+                cinematograph_current[title]['current_episode'] = int(user_input_current_episode) if user_input_current_episode else past_current_episode
+            else:
+                user_input_current_episode = input('Введите текущий эпизод: ')
+                cinematograph_current[title]['current_episode'] = int(user_input_current_episode)
+
+            if past_total_episodes is not None:
+                user_input_total_episodes = input(f'Всего эпизодов в текущем сезоне (Enter, чтобы оставить {past_total_episodes}): ')
+                cinematograph_current[title]['total_episodes'] = int(user_input_total_episodes) if user_input_total_episodes else past_total_episodes
+            else:
+                user_input_total_episodes = input('Всего эпизодов в текущем сезоне: ')
+                cinematograph_current[title]['total_episodes'] = int(user_input_total_episodes)
+
+            cinematograph_current[title]['kp_id'] = found_id
+
+            save_json(cinematograph_current, cinematograph_current_path, logger)
+        else:
+            logger.error("Не удалось найти подходящие данные для %s.", title)
     except Exception as err:
         logger.error("Ошибка при обновлении JSON для %s: %s", title, err)
 
 
+def show_message_box(title, message):
+    MB_OKCANCEL = 0x1
+    return ctypes.windll.user32.MessageBoxW(None, message, title, MB_OKCANCEL)
+
+
+def updating_unknown_object(cinematograph_title, api_key):
+    try:
+        headers = {"X-API-KEY": api_key}
+        response = requests.get(
+            'https://api.kinopoisk.dev/v1.4/movie/search',
+            params={"query": cinematograph_title, "limit": 10, "page": 1},
+            headers=headers,
+            timeout=20
+        )
+
+        if response.status_code == 200:
+            movies = response.json()
+            docs = movies.get('docs', [])
+
+            return docs
+        else:
+            logger.error("API Error %s: %s", response.status_code, response.text)
+            raise ApiError(response.text)
+    except ApiError as err:
+        raise ApiError(err)
+    except Exception as err:
+        logger.error("Ошибка при поиске данных для %s: %s", cinematograph_title, err)
+
+    return []
+
+
 def main():
     try:
-        if not os.path.exists(config.json_experience):
-            save_json({'Movies': {}, 'Series': {}}, config.json_experience, logger)
+        if not os.path.exists(config.json_experience_path):
+            save_json({}, config.json_experience_path, logger)
 
         if not os.path.exists(config.json_data_path):
             save_json({}, config.json_data_path, logger)
@@ -170,20 +258,23 @@ def main():
         choice = input('Выберите: ')
 
         if choice == '1':
-            add_data_to_json(config.json_experience, config.json_current, 'Movies')
+            add_cinematograph_experience(config.json_experience_path, config.json_current_path, 'Movies')
         elif choice == '2':
-            add_data_to_json(config.json_experience, config.json_current, 'Series')
+            add_cinematograph_experience(config.json_experience_path, config.json_current_path, 'Series')
         elif choice == '3':
             title = input('Введите название сериала: ')
             update_cinematograph_json(
-                cinematograph_data=load_json(config.json_data_path, {}, logger),
-                json_current=load_json(config.json_current, {}, logger),
+                cinematograph_data_path=config.json_data_path,
+                cinematograph_current_path=config.json_current_path,
+                cinematograph_experience_path=config.json_experience_path,
                 title=title,
-                json_data_path=config.json_data_path
+                api_key=config.api_key
             )
+
         subprocess.run(['python', 'create_cinematograph_notes.py'], shell=True, check=False)
     except Exception as err:
         logger.error("Ошибка в функции main: %s", err)
+
 
 
 logger = set_logger(log_folder=config.log_folder, log_subfolder_name='append_cinematograph_experience')
