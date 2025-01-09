@@ -33,7 +33,7 @@ def set_logger(log_folder):
 
     if log_folder:  # Создание файла с логами только если указана папка
         log_filename = datetime.now().strftime('%Y-%m-%d %H-%M-%S.log')
-        log_folder = os.path.join(log_folder, 'append_cinematograph_experience')
+        log_folder = os.path.join(log_folder, 'append_exceptions')
         log_file_path = os.path.join(log_folder, log_filename)
 
         os.makedirs(log_folder, exist_ok=True)
