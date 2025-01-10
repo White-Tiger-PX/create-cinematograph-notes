@@ -94,8 +94,9 @@ def input_series_data():
         logger.error("Ошибка при вводе данных сериала: %s", err)
 
 
-def add_cinematograph_experience(cinematograph_experience_path, cinematograph_current_path, cinematograph_type):
+def add_cinematograph_experience(cinematograph_data_path, cinematograph_current_path, cinematograph_experience_path, cinematograph_type):
     try:
+        cinematograph_data = load_json(cinematograph_data_path, {}, logger)
         cinematograph_experience = load_json(cinematograph_experience_path, {}, logger)
         cinematograph_current = load_json(cinematograph_current_path, {}, logger)
 
@@ -112,25 +113,26 @@ def add_cinematograph_experience(cinematograph_experience_path, cinematograph_cu
                 save_json(cinematograph_current, cinematograph_current_path, logger)
 
         for key, value in data.items():
-            kp_id = value.get('kp_id', None)
-
-            # Добавляем kp_id в cinematograph_experience, если это новый ключ
+            # Проверяем, что тип Film/Series совпадает с тем, что в cinematograph_experience
             if key in cinematograph_experience:
-                cinematograph_experience[key]['experience'].append(value['experience'][0])
-                logger.info('Добавлено новое значение для ключа %s', key)
+                existing_data = cinematograph_data.get(cinematograph_experience[key]['kp_id'], {})
+                existing_is_series = existing_data.get('isSeries', None)
+
+                if existing_is_series != (cinematograph_type == 'Series'):
+                    logger.warning(
+                        "В cinematograph_experience уже есть запись для %s, но тип отличается. Существующий: %s, добавляемый: %s.",
+                        key, 'Series' if existing_is_series else 'Movie', cinematograph_type
+                    )
+                    user_choice = input("Вы хотите записать данные с другим типом в тот же ключ? (y/n): ")
+
+                    if user_choice.lower() == 'y':
+                        cinematograph_experience[key]['experience'].append(value['experience'][0])
+                        logger.info("Добавлено новое значение для ключа %s", key)
             else:
                 cinematograph_experience[key] = value
-                logger.info('Новый ключ добавлен: %s', key)
-
-            if kp_id:
-                if key not in cinematograph_current:
-                    cinematograph_current[key] = {}
-
-                cinematograph_current[key]['kp_id'] = str(kp_id)
-                logger.info('Добавлен kp_id для %s', key)
+                logger.info("Добавлен новый ключ: %s", key)
 
         save_json(cinematograph_experience, cinematograph_experience_path, logger)
-        save_json(cinematograph_current, cinematograph_current_path, logger)
     except Exception as err:
         logger.error("Ошибка при добавлении данных в JSON: %s", err)
 
@@ -258,9 +260,19 @@ def main():
         choice = input('Выберите: ')
 
         if choice == '1':
-            add_cinematograph_experience(config.json_experience_path, config.json_current_path, 'Movies')
+            add_cinematograph_experience(
+                cinematograph_data_path=config.json_data_path,
+                cinematograph_current_path=config.json_current_path,
+                cinematograph_experience_path=config.json_experience_path,
+                cinematograph_type='Movies'
+            )
         elif choice == '2':
-            add_cinematograph_experience(config.json_experience_path, config.json_current_path, 'Series')
+            add_cinematograph_experience(
+                cinematograph_data_path=config.json_data_path,
+                cinematograph_current_path=config.json_current_path,
+                cinematograph_experience_path=config.json_experience_path,
+                cinematograph_type='Series'
+            )
         elif choice == '3':
             title = input('Введите название сериала: ')
             update_cinematograph_json(
