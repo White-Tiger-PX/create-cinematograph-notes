@@ -163,9 +163,12 @@ def get_sequels_and_prequels_columns_and_values(all_ids, data, info, exceptions,
 
                     stringh_item_name = stringh_item_name + f" ({item['year']})"
 
+                # Формируем ссылку на КиноПоиск
+                kp_url = f"https://www.kinopoisk.ru/film/{item['id']}/" # Универсальная ссылка
+
                 if not poster_in_exceptions:
                     if not name_in_exceptions and not content_in_local_data:
-                        info['sequels_and_prequels_titles'].append(stringh_item_name)
+                        info['sequels_and_prequels_titles'].append(f"[{stringh_item_name}]({kp_url})")
                         info['sequels_and_prequels_links'].append(item['poster']['url'])
                         info['sequels_and_prequels'] = True
 
@@ -173,9 +176,9 @@ def get_sequels_and_prequels_columns_and_values(all_ids, data, info, exceptions,
                         for old, new in replacements_file_name.items():
                             item['name'] = item['name'].replace(old, new)
 
-                        values.append([f"<img src={item['poster']['url']} width='400'><br>[[{item['name']}]]"])
+                        values.append([f"<img src={item['poster']['url']} width='400'><br>[[{item['name']}]({kp_url})]"])
                     else:
-                        values.append([f"<img src={item['poster']['url']} width='400'><br>{item['name']}"])
+                        values.append([f"<img src={item['poster']['url']} width='400'><br>[{item['name']}]({kp_url})"])
 
         return ['Сиквелы и приквелы'], values
     except Exception as err:
