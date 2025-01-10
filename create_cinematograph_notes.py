@@ -151,34 +151,34 @@ def get_sequels_and_prequels_columns_and_values(all_ids, data, info, exceptions,
 
         if 'sequelsAndPrequels' in data and len(data['sequelsAndPrequels']) > 0:
             for item in data['sequelsAndPrequels']:
-                name_in_exceptions = item['name'] in exceptions
-                content_in_local_data = item['id'] in all_ids
-                poster_in_exceptions = item['poster']['url'] in exceptions
+                if item['name'] is None or item['poster']['url'] is None:
+                    continue
 
-                stringh_item_name = str(item['name'])
+                id_in_exceptions = str(item['id']) in exceptions
+                content_in_local_data = item['id'] in all_ids
+                item_name = item['name']
 
                 if 'year' in item and item['year'] != 'None' and item['year'] is not None:
                     if int(item['year']) > 2024:
                         continue
 
-                    stringh_item_name = stringh_item_name + f" ({item['year']})"
+                    item_name += f" ({item['year']})"
 
                 # Формируем ссылку на КиноПоиск
                 kp_url = f"https://www.kinopoisk.ru/film/{item['id']}/" # Универсальная ссылка
 
-                if not poster_in_exceptions:
-                    if not name_in_exceptions and not content_in_local_data:
-                        info['sequels_and_prequels_titles'].append(f"[{stringh_item_name}]({kp_url})")
-                        info['sequels_and_prequels_links'].append(item['poster']['url'])
-                        info['sequels_and_prequels'] = True
+                if not id_in_exceptions and not content_in_local_data:
+                    info['sequels_and_prequels_titles'].append(f"[{item_name}]({kp_url})")
+                    info['sequels_and_prequels_links'].append(item['poster']['url'])
+                    info['sequels_and_prequels'] = True
 
-                    if content_in_local_data and item['name']:
-                        for old, new in replacements_file_name.items():
-                            item['name'] = item['name'].replace(old, new)
+                if content_in_local_data and item['name']:
+                    for old, new in replacements_file_name.items():
+                        item['name'] = item['name'].replace(old, new)
 
-                        values.append([f"<img src={item['poster']['url']} width='400'><br>[[{item['name']}]({kp_url})]"])
-                    else:
-                        values.append([f"<img src={item['poster']['url']} width='400'><br>[{item['name']}]({kp_url})"])
+                    values.append([f"<img src={item['poster']['url']} width='400'><br>[[{item['name']}]({kp_url})]"])
+                else:
+                    values.append([f"<img src={item['poster']['url']} width='400'><br>[{item['name']}]({kp_url})"])
 
         return ['Сиквелы и приквелы'], values
     except Exception as err:
@@ -202,7 +202,7 @@ def create_info(data, title, experience_data, current_series, exceptions):
         }
 
         if data['isSeries'] and 'seasonsInfo' in data and data['seasonsInfo']:
-            if title not in exceptions:
+            if data['id'] not in exceptions:
                 last_season_number = data['seasonsInfo'][-1]['number']
                 last_experience_season = experience_data[-1]['season'] if experience_data else None
 

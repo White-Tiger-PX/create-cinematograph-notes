@@ -1,9 +1,23 @@
 import os
+import re
 
 import config
 
 from set_logger import set_logger
 from utils_json import load_json, save_json
+
+
+def extract_id_from_url(url):
+    """
+    Функция для извлечения ID из ссылки Кинопоиска.
+    Например, из https://www.kinopoisk.ru/film/4852097/ извлечет '4852097'.
+    """
+    match = re.search(r'/(film|serial)/(\d+)/', url)
+
+    if match:
+        return match.group(2)
+
+    return None
 
 
 def main():
@@ -14,10 +28,17 @@ def main():
     exceptions = []
 
     while exception != '':
-        exception = input("Введите название (Оставьте пустым, чтобы сохранить): ")
+        exception = input("Введите ссылку на Кинопоиск или ID (Оставьте пустым, чтобы сохранить): ")
 
         if exception != '':
-            exceptions.append(exception)
+            if 'kinopoisk' in exception: # Если это ссылка, извлекаем ID
+                exception_id = extract_id_from_url(exception)
+                if exception_id:
+                    exceptions.append(exception_id)
+                else:
+                    print("Ошибка: Невалидная ссылка.")
+            else:
+                exceptions.append(exception)
 
     current_exceptions = load_json(config.json_exceptions_path, [], logger)
     current_exceptions.extend(exceptions)
