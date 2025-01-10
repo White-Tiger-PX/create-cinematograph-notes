@@ -126,7 +126,7 @@ def add_cinematograph_experience(cinematograph_experience_path, cinematograph_cu
                 if key not in cinematograph_current:
                     cinematograph_current[key] = {}
 
-                cinematograph_current[key]['kp_id'] = kp_id
+                cinematograph_current[key]['kp_id'] = str(kp_id)
                 logger.info('Добавлен kp_id для %s', key)
 
         save_json(cinematograph_experience, cinematograph_experience_path, logger)

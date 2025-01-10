@@ -126,24 +126,9 @@ def update_cinematograph_json(cinematograph_experience, cinematograph_data, json
             try:
                 kp_id = cinematograph_experience[title].get('kp_id')
 
-                if kp_id:
-                    if kp_id in cinematograph_data:
-                        data = cinematograph_data[kp_id]
-
-                        try:
-                            update_date = datetime.strptime(data['date_update'], '%Y-%m-%d')
-                        except ValueError:
-                            logger.error("Неверный формат даты для %s: %s. Обновляем данные.", title, data['date_update'])
-                            update_date = datetime(1970, 1, 1)  # Устанавливаем дату по умолчанию для некорректных значений
-
-                        if update_date < update_threshold and api_available:
-                            logger.info("Данные для %s устарели. Обновляем данные...", title)
-                            data = updating_known_object(data, api_key, kp_id)
-                            data = updating_object_images(data, api_key, kp_id)
-                            cinematograph_data[kp_id] = data
-                    else:
-                        need_search_by_api = True
-                else:
+                if not kp_id:
+                    need_search_by_api = True
+                elif not kp_id in cinematograph_data:
                     need_search_by_api = True
 
                 if need_search_by_api and api_available:
@@ -158,12 +143,26 @@ def update_cinematograph_json(cinematograph_experience, cinematograph_data, json
                         user_choice = show_message_box("Обновление данных", f"Это подходящая страница для: {title}")
 
                         if user_choice == 1:
-                            new_info = updating_object_images(new_info, api_key, new_info['id'])
                             new_info['date_update'] = (datetime.now() - timedelta(days=365)).strftime('%Y-%m-%d')
                             cinematograph_data[new_info['id']] = new_info
-                            cinematograph_experience[title]['kp_id'] = new_info['id']
+                            cinematograph_experience[title]['kp_id'] = str(new_info['id'])
                             logger.info("Данные для %s обновлены и сохранены в cinematograph_experience.", title)
                             break
+
+                if kp_id in cinematograph_data:
+                    data = cinematograph_data[kp_id]
+
+                    try:
+                        update_date = datetime.strptime(data['date_update'], '%Y-%m-%d')
+                    except ValueError:
+                        logger.error("Неверный формат даты для %s: %s. Обновляем данные.", title, data['date_update'])
+                        update_date = datetime(1970, 1, 1)  # Устанавливаем дату по умолчанию для некорректных значений
+
+                    if update_date < update_threshold and api_available:
+                        logger.info("Данные для %s устарели. Обновляем данные...", title)
+                        data = updating_known_object(data, api_key, kp_id)
+                        data = updating_object_images(data, api_key, kp_id)
+                        cinematograph_data[kp_id] = data
             except ApiError:
                 api_available = False
             except Exception as err:
