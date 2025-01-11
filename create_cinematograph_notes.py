@@ -263,16 +263,25 @@ def create_md_content(info, data, experience_data, all_ids, exceptions, replacem
         return ''
 
 
-def update_cinematograph_notes(notes_folder, replacements_file_name, replacements_file_content, cinematograph_experience, cinematograph_data, current_series, exceptions):
+def update_cinematograph_notes(
+    notes_folder,
+    replacements_file_name,
+    replacements_file_content,
+    json_experience_path,
+    json_data_path,
+    json_current_path,
+    json_exceptions_path
+):
     try:
-        if not cinematograph_experience:
-            logger.warning("Список опыта кинематографа пуст.")
+        cinematograph_experience = load_json(json_experience_path, {}, logger)
+        cinematograph_data = load_json(json_data_path, {}, logger)
+        current_series = load_json(json_current_path, {}, logger)
+        exceptions = load_json(json_exceptions_path, [], logger)
 
+        if not cinematograph_experience:
             return
 
         if not cinematograph_data:
-            logger.warning("Данные кинематографа отсутствуют.")
-
             return
 
         os.makedirs(notes_folder, exist_ok=True)
@@ -300,7 +309,6 @@ def update_cinematograph_notes(notes_folder, replacements_file_name, replacement
         for title in current_series:
             try:
                 if title in all_titles:
-
                     cinematograph_experience[title]['experience'].append({
                         "date": 'in progress',
                         "rating": '',
@@ -314,7 +322,6 @@ def update_cinematograph_notes(notes_folder, replacements_file_name, replacement
                         "season": current_series[title]['current_season']
                     }]
             except Exception as err:
-                print(cinematograph_experience[title])
                 logger.error("Ошибка обработки текущего сериала %s: %s", title, err)
 
         for title, data in cinematograph_experience.items():
@@ -344,7 +351,7 @@ def update_cinematograph_notes(notes_folder, replacements_file_name, replacement
             except Exception as err:
                 logger.error("Ошибка при обновлении заметки %s: %s", title, err)
     except Exception as err:
-        logger.error("Ошибка в функции update_cinematograph_notes: %s", err)
+        logger.error("Ошибка в функции update_cinematograph_notes: %s", err, exc_info=True)
 
 
 def main():
@@ -361,13 +368,13 @@ def main():
             notes_folder=config.cinematograph_notes_folder,
             replacements_file_name=config.replacements_file_name,
             replacements_file_content=config.replacements_file_content,
-            cinematograph_experience=load_json(config.json_experience_path, {}, logger),
-            cinematograph_data=load_json(config.json_data_path, {}, logger),
-            current_series=load_json(config.json_current_path, {}, logger),
-            exceptions=load_json(config.json_exceptions_path, [], logger),
+            json_experience_path=config.json_experience_path,
+            json_data_path=config.json_data_path,
+            json_current_path=config.json_current_path,
+            json_exceptions_path=config.json_exceptions_path
         )
     except Exception as err:
-        logger.error("Ошибка в функции main: %s", err)
+        logger.error("Ошибка в функции main: %s", err, exc_info=True)
 
 
 logger = set_logger(log_folder=config.log_folder, log_subfolder_name='create_cinematograph_notes')

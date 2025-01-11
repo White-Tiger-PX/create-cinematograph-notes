@@ -110,13 +110,14 @@ def show_message_box(title, message):
     return ctypes.windll.user32.MessageBoxW(None, message, title, MB_OKCANCEL)
 
 
-def update_cinematograph_json(cinematograph_experience, cinematograph_data, json_data_path, update_threshold, api_key):
+def update_cinematograph_json(json_data_path, json_experience_path, update_threshold, api_key):
     api_available = True
-    need_search_by_api = False
 
     try:
+        cinematograph_data = load_json(json_data_path, {}, logger)
+        cinematograph_experience = load_json(json_experience_path, {}, logger)
+
         if not cinematograph_experience:
-            logger.warning("Нет данных о киноопыте для обновления.")
             return
 
         all_titles = cinematograph_experience.keys()
@@ -125,15 +126,9 @@ def update_cinematograph_json(cinematograph_experience, cinematograph_data, json
         for title in all_titles:
             try:
                 kp_id = cinematograph_experience[title].get('kp_id')
-
-                if not kp_id:
-                    need_search_by_api = True
-                elif not kp_id in cinematograph_data:
-                    need_search_by_api = True
+                need_search_by_api = not kp_id or kp_id not in cinematograph_data
 
                 if need_search_by_api and api_available:
-                    need_search_by_api = False
-
                     logger.info("ID не найдено для %s, ищем название через API...", title)
                     new_data = updating_unknown_object(title, api_key)
 
@@ -168,8 +163,9 @@ def update_cinematograph_json(cinematograph_experience, cinematograph_data, json
             except Exception as err:
                 logger.error("Ошибка при обновлении данных для %s: %s", title, err)
 
+        # Сохранение обновлённых данных
         save_json(cinematograph_data, json_data_path, logger)
-        save_json(cinematograph_experience, config.json_experience_path, logger)
+        save_json(cinematograph_experience, json_experience_path, logger)
     except Exception as err:
         logger.error("Ошибка в функции update_cinematograph_json: %s", err)
 
@@ -183,9 +179,8 @@ def main():
             save_json({}, config.json_data_path, logger)
 
         update_cinematograph_json(
-            cinematograph_experience=load_json(config.json_experience_path, {}, logger),
-            cinematograph_data=load_json(config.json_data_path, {}, logger),
             json_data_path=config.json_data_path,
+            json_experience_path=config.json_experience_path,
             update_threshold=config.update_threshold,
             api_key=config.api_key
         )

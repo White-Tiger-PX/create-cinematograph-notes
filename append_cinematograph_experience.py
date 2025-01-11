@@ -288,7 +288,6 @@ def main():
         logger.error("Ошибка в функции main: %s", err)
 
 
-
 logger = set_logger(log_folder=config.log_folder, log_subfolder_name='append_cinematograph_experience')
 
 if __name__ == "__main__":
