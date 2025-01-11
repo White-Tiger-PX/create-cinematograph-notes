@@ -164,8 +164,8 @@ def update_cinematograph_json(json_data_path, json_experience_path, update_thres
                 logger.error("Ошибка при обновлении данных для %s: %s", title, err)
 
         # Сохранение обновлённых данных
-        save_json(cinematograph_data, json_data_path, logger)
-        save_json(cinematograph_experience, json_experience_path, logger)
+        save_json(json_data_path, cinematograph_data, logger)
+        save_json(json_experience_path, cinematograph_experience, logger)
     except Exception as err:
         logger.error("Ошибка в функции update_cinematograph_json: %s", err)
 
@@ -173,10 +173,10 @@ def update_cinematograph_json(json_data_path, json_experience_path, update_thres
 def main():
     try:
         if not os.path.exists(config.json_experience_path):
-            save_json({}, config.json_experience_path, logger)
+            save_json(config.json_experience_path, {}, logger)
 
         if not os.path.exists(config.json_data_path):
-            save_json({}, config.json_data_path, logger)
+            save_json(config.json_data_path, {}, logger)
 
         update_cinematograph_json(
             json_data_path=config.json_data_path,

@@ -110,7 +110,7 @@ def add_cinematograph_experience(cinematograph_data_path, cinematograph_current_
             if list(data.keys())[0] in list(cinematograph_current.keys()):
                 del cinematograph_current[list(data.keys())[0]]
 
-                save_json(cinematograph_current, cinematograph_current_path, logger)
+                save_json(cinematograph_current_path, cinematograph_current, logger)
 
         for key, value in data.items():
             # Проверяем, что тип Film/Series совпадает с тем, что в cinematograph_experience
@@ -132,7 +132,7 @@ def add_cinematograph_experience(cinematograph_data_path, cinematograph_current_
                 cinematograph_experience[key] = value
                 logger.info("Добавлен новый ключ: %s", key)
 
-        save_json(cinematograph_experience, cinematograph_experience_path, logger)
+        save_json(cinematograph_experience_path, cinematograph_experience, logger)
     except Exception as err:
         logger.error("Ошибка при добавлении данных в JSON: %s", err)
 
@@ -175,7 +175,7 @@ def update_cinematograph_json(cinematograph_data_path, cinematograph_current_pat
                     new_info['date_update'] = (datetime.now() - timedelta(days=365)).strftime('%Y-%m-%d')
                     cinematograph_data[found_id] = new_info
                     cinematograph_data[found_id]['title'] = title  # Сохраняем заголовок для будущих проверок
-                    save_json(cinematograph_data, cinematograph_data_path, logger)
+                    save_json(cinematograph_data_path, cinematograph_data, logger)
                     break
 
         if found_id:
@@ -209,7 +209,7 @@ def update_cinematograph_json(cinematograph_data_path, cinematograph_current_pat
 
             cinematograph_current[title]['kp_id'] = found_id
 
-            save_json(cinematograph_current, cinematograph_current_path, logger)
+            save_json(cinematograph_current_path, cinematograph_current, logger)
         else:
             logger.error("Не удалось найти подходящие данные для %s.", title)
     except Exception as err:
@@ -250,10 +250,10 @@ def updating_unknown_object(cinematograph_title, api_key):
 def main():
     try:
         if not os.path.exists(config.json_experience_path):
-            save_json({}, config.json_experience_path, logger)
+            save_json(config.json_experience_path, {}, logger)
 
         if not os.path.exists(config.json_data_path):
-            save_json({}, config.json_data_path, logger)
+            save_json(config.json_data_path, {}, logger)
 
         print('Вы добавляете:\n1. Фильм\n2. Сериал\n3. Просмотренная серия сериала\n')
 

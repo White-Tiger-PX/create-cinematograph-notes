@@ -22,7 +22,7 @@ def extract_id_from_url(url):
 
 def main():
     if not os.path.exists(config.json_exceptions_path):
-        save_json([], config.json_exceptions_path, logger)
+        save_json(config.json_exceptions_path, [], logger)
 
     exception = None
     exceptions = []
@@ -43,7 +43,7 @@ def main():
     current_exceptions = load_json(config.json_exceptions_path, [], logger)
     current_exceptions.extend(exceptions)
 
-    save_json(current_exceptions, config.json_exceptions_path, logger)
+    save_json(config.json_exceptions_path, current_exceptions, logger)
 
 
 logger = set_logger(log_folder=config.log_folder, log_subfolder_name='append_exceptions')

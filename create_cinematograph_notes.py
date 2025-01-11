@@ -357,10 +357,10 @@ def update_cinematograph_notes(
 def main():
     try:
         if not os.path.exists(config.json_experience_path):
-            save_json({}, config.json_experience_path, logger)
+            save_json(config.json_experience_path, {}, logger)
 
         if not os.path.exists(config.json_data_path):
-            save_json({}, config.json_data_path, logger)
+            save_json(config.json_data_path, {}, logger)
 
         subprocess.run(['python', 'cinematograph_data_updater.py'], shell=True, check=True)
 

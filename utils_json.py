@@ -2,7 +2,7 @@ import os
 import json
 
 
-def save_json(data, file_path, logger):
+def save_json(file_path, data, logger):
     try:
         file_path = os.path.normpath(file_path)
 
