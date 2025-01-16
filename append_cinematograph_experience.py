@@ -171,7 +171,7 @@ def update_cinematograph_json(cinematograph_data_path, cinematograph_current_pat
                 user_choice = show_message_box("Обновление данных", f"Это подходящая страница для: {title}?")
 
                 if user_choice == 1:
-                    found_id = new_info['id']
+                    found_id = str(new_info['id'])
                     new_info['date_update'] = (datetime.now() - timedelta(days=365)).strftime('%Y-%m-%d')
                     cinematograph_data[found_id] = new_info
                     cinematograph_data[found_id]['title'] = title  # Сохраняем заголовок для будущих проверок
@@ -288,7 +288,7 @@ def main():
         logger.error("Ошибка в функции main: %s", err)
 
 
-logger = set_logger(log_folder=config.log_folder, log_subfolder_name='append_cinematograph_experience')
-
 if __name__ == "__main__":
+    logger = set_logger(log_folder=config.log_folder, log_subfolder_name='append_cinematograph_experience')
+
     main()
